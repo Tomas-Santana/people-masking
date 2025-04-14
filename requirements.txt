@@ -1,0 +1,7 @@
+imutils==0.5.4
+matplotlib==3.10.1
+opencv_python==4.11.0.86
+scikit_learn==1.6.1
+torch==2.6.0
+torchvision==0.21.0
+tqdm==4.66.5
