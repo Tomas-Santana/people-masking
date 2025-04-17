@@ -1,7 +1,7 @@
-from data import PeopleMaskingDataset
-from src.models.UNET import UNet
-import config
-import params
+from src.data import PeopleMaskingDataset
+from src.models.UNET import UNET
+import src.config as config
+import src.params as params
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -14,18 +14,18 @@ import time
 
 
 def main():
-    image_paths = list(paths.list_images(config.RESIZED_IMAGES_DIR))
-    mask_paths = list(paths.list_images(config.RESIZED_MASKS_DIR))
+    image_paths = list(paths.list_images(config.IMAGES_DIR))
+    mask_paths = list(paths.list_images(config.MASKS_DIR))
     images_train, images_test, masks_train, masks_test = train_test_split(
         image_paths, mask_paths, test_size=params.TRAIN_TEST_SPLIT, random_state=42
     )
 
-    transformations = transforms.Compose([transforms.ToPILImage(), transforms.Resize(config.INPUT_IMAGE_SIZE), transforms.ToTensor()])
+    transformations = transforms.Compose([transforms.ToPILImage(), transforms.Resize(config.INPUT_IMAGE_SIZE), transforms.Grayscale(), transforms.ToTensor()])
     train_dataset = PeopleMaskingDataset(images_train, masks_train, transformations)
     test_dataset = PeopleMaskingDataset(images_test, masks_test, transformations)
     train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
     test_loader = DataLoader(test_dataset, batch_size=params.BATCH_SIZE, shuffle=False, num_workers=params.NUM_WORKERS)
-    unet = UNet().to(config.DEVICE)
+    unet = UNET().to(config.DEVICE)
     loss_fn = BCEWithLogitsLoss()
     optimizer = Adam(unet.parameters(), lr=params.LR)
     train_steps = len(train_loader)
