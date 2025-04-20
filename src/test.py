@@ -65,10 +65,6 @@ def visualize_webcam_result(frame, mask):
 
 def main():
     # Path to the image and model checkpoint
-    webcam = cv2.VideoCapture(0)  # Open webcam
-    if not webcam.isOpened():
-        print("Error: Could not open webcam.")
-        return
     images_dir = config.IMAGES_DIR  # Directory containing test images
     images_path = list(paths.list_images(images_dir))
     #load a random image from the directory
@@ -83,33 +79,24 @@ def main():
     input_size = config.INPUT_IMAGE_SIZE  # Ensure this matches your training configuration
 
     while True:
-        ret, frame = webcam.read()  # Read a frame from the webcam
-        if not ret:
-            print("Error: Could not read frame from webcam.")
-            break
-        # Preprocess the frame
-        image = preprocess_frame(frame, input_size).to(device)
+        image_path = random.choice(images_path)  
+        image = preprocess_image(image_path, input_size).to(device)
         
         # Predict the mask
         with torch.no_grad():
             predicted_mask = model(image)
             predicted_mask = (predicted_mask > 0.5).float()  # Binarize the mask
-            # target size = original image size
-            original_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            original_image = Image.open(image_path).convert("RGB")
+
             target_size = original_image.size[::-1]  # (width, height)
 
             
             predicted_mask = torch.nn.functional.interpolate(predicted_mask, size=target_size, mode="bilinear", align_corners=False)
 
-        # Visualize the result
-        visualize_webcam_result(frame, predicted_mask)
-        # Break the loop on 'q' key press
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        visualize_result(image_path, predicted_mask)
+        if cv2.waitKey(0) & 0xFF == ord('q'):
             break
 
-    # Release the webcam and close all OpenCV windows
-    webcam.release()
-    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
