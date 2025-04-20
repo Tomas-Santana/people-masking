@@ -20,9 +20,9 @@ def main():
         image_paths, mask_paths, test_size=params.TRAIN_TEST_SPLIT, random_state=42
     )
 
-    transformations = transforms.Compose([transforms.ToPILImage(), transforms.Resize(config.INPUT_IMAGE_SIZE), transforms.Grayscale(), transforms.ToTensor()])
-    train_dataset = PeopleMaskingDataset(images_train, masks_train, transformations)
-    test_dataset = PeopleMaskingDataset(images_test, masks_test, transformations)
+    image_transforms = transforms.Compose([transforms.ToPILImage(), transforms.Resize(config.INPUT_IMAGE_SIZE), transforms.ToTensor()])
+    train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms)
+    test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms)
     train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
     test_loader = DataLoader(test_dataset, batch_size=params.BATCH_SIZE, shuffle=False, num_workers=params.NUM_WORKERS)
     unet = UNET().to(config.DEVICE)

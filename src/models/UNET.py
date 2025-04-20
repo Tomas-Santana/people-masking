@@ -4,37 +4,86 @@ import torch.nn.functional as F
 import torchvision.transforms as TF
 
 class UNET(nn.Module):
-    def __init__(self, in_channels: int = 1, out_channels: int = 1):
+    def __init__(self, in_channels: int = 3, out_channels: int = 1):
         super(UNET, self).__init__()
         # encoder
-        self.encoder1 = nn.Conv2d(in_channels, 32, kernel_size=3, padding=1)
-        self.encoder2 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
-        self.encoder3 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
+        self.enc1 = EncoderBlock(in_channels, 64)
+        self.enc2 = EncoderBlock(64, 128)
+        self.enc3 = EncoderBlock(128, 256)
 
-       
-        self.decoder3 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-        self.decoder2 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-        self.decoder1 = nn.Conv2d(32, out_channels, kernel_size=3, padding=1)
+        # bottleneck
+        self.bottleneck = ConvBlock(256, 512)
+
+        # decoder
+        self.dec3 = DecoderBlock(512, 256)
+        self.dec2 = DecoderBlock(256, 128)
+        self.dec1 = DecoderBlock(128, 64)
+
+        self.final_conv = nn.Conv2d(64, out_channels, kernel_size=1)
+    
+    def forward(self, x):
+        # Encoder
+        enc1, p1 = self.enc1(x)
+        enc2, p2 = self.enc2(p1)
+        enc3, p3 = self.enc3(p2)
+
+        # Bottleneck
+        bottleneck = self.bottleneck(p3)
+
+        # Decoder
+        dec3 = self.dec3(bottleneck, enc3)
+        dec2 = self.dec2(dec3, enc2)
+        dec1 = self.dec1(dec2, enc1)
+
+        return torch.sigmoid(self.final_conv(dec1))
+    
+class ConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(ConvBlock, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, x):
+        return self.conv(x)
+
+
+class EncoderBlock(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(EncoderBlock, self).__init__()
+        self.conv = ConvBlock(in_channels, out_channels)
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+    def forward(self, x):
+        x = self.conv(x)
+        p = self.pool(x)
+        return x, p
+    
+class DecoderBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, bilinear=True):
+        super(DecoderBlock, self).__init__()
+        self.bilinear = bilinear
+        if bilinear:
+            self.upconv = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        else:
+            self.upconv = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
         
-        enc1 = F.relu(self.encoder1(x)) # 128x128x32
-        enc1_pooled = F.max_pool2d(enc1, 2) # 64x64x32
-        enc2 = F.relu(self.encoder2(enc1_pooled)) # 64x64x32
-        enc2_pooled = F.max_pool2d(enc2, 2) # 32x32x32
-        enc3 = F.relu(self.encoder3(enc2_pooled)) # 32x32x32
+        # Adjust the input channels for the ConvBlock to account for concatenation
+        self.conv = ConvBlock(in_channels + out_channels, out_channels)
+
+    def forward(self, x1, x2):
+        x1 = self.upconv(x1)
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
+
+        x1 = F.pad(x1, (diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2))
+        x = torch.cat((x2, x1), dim=1)
+        return self.conv(x)
+
+            
         
-
-        enc3_resized = F.interpolate(enc3, size=(64, 64), mode='bilinear', align_corners=False) # 64x64x32
-
-
-        dec3 = torch.cat((enc3_resized, enc2), dim=1) # 64x64x64
-        dec3 = F.relu(self.decoder3(dec3))
-
-        dec3_resized = F.interpolate(dec3, size=(128, 128), mode='bilinear', align_corners=False)
-
-        dec2 = torch.cat((dec3_resized, enc1), dim=1) # 128x128x64
-        dec2 = F.relu(self.decoder2(dec2))
-
-        out = F.relu(self.decoder1(dec2)) # 128x128x1
-        return out

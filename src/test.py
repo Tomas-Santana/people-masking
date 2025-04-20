@@ -1,31 +1,57 @@
 import torch
+from torchvision import transforms as TL
+from PIL import Image
+import matplotlib.pyplot as plt
 from src.models.UNET import UNET
-import torchvision
-import cv2
+import src.config as config
 
+def load_model(checkpoint_path, device):
+    model = UNET().to(device)
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    model.eval()
+    return model
 
-checkpont = torch.load("checkpoints/model.pth")
-model = UNET()
-model.load_state_dict(checkpont)
+def preprocess_image(image_path, input_size):
+    transformations = TL.Compose([
+        TL.Resize(input_size),
+        TL.ToTensor()
+    ])
+    image = Image.open(image_path).convert("RGB")
+    image = transformations(image)
+    return image.unsqueeze(0)  # Add batch dimension
 
-sample_image_path = "dataset/images/ds1_bow-tie-businessman-fashion-man.png"
+def visualize_result(image_path, mask):
+    original_image = Image.open(image_path).convert("RGB")
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.title("Original Image")
+    plt.imshow(original_image)
+    plt.axis("off")
+    plt.subplot(1, 2, 2)
+    plt.title("Predicted Mask")
+    plt.imshow(mask.squeeze(0).cpu().numpy(), cmap="gray")
+    plt.show()
 
-image = torchvision.io.read_image(sample_image_path).unsqueeze(0).float() / 255.0
-image = torchvision.transforms.functional.resize(image, (128, 128))
-grayscale_image = torchvision.transforms.functional.rgb_to_grayscale(image, num_output_channels=1)
-image = grayscale_image.unsqueeze(0)
+def main():
+    # Path to the image and model checkpoint
+    image_path = "dataset/images/ds1_bow-tie-businessman-fashion-man.png"  # Replace with your image path
+    checkpoint_path = "checkpoints/model.pth"  # Replace with your checkpoint path
 
-image = image.to("cpu")
+    # Load model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = load_model(checkpoint_path, device)
 
-model.eval()
+    # Preprocess the image
+    input_size = config.INPUT_IMAGE_SIZE  # Ensure this matches your training configuration
+    image = preprocess_image(image_path, input_size).to(device)
 
-with torch.no_grad():
-    output = model(image)
-    output = torch.sigmoid(output)
-    output = (output > 0.5).float()
-    output_image = output.squeeze().cpu().numpy()
+    # Generate mask
+    with torch.no_grad():
+        predicted_mask = model(image)
+        predicted_mask = (predicted_mask > 0.5).float()  # Binarize the mask
 
-    output_image = (output_image * 255).astype("uint8")
-    output_image = cv2.cvtColor(output_image, cv2.COLOR_GRAY2BGR)
-    cv2.imshow("Output", output_image)
-    cv2.waitKey(0)
+    # Visualize the result
+    visualize_result(image_path, predicted_mask)
+
+if __name__ == "__main__":
+    main()
