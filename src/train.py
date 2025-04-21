@@ -80,7 +80,7 @@ def main(checkpoint_path=None):
         test_accuracy.append(epoch_test_accuracy / test_steps)
 
         print(f"Epoch {epoch + 1}/{params.NUM_EPOCHS} - Train loss: {train_loss[-1]:.4f} - Test loss: {test_loss[-1]:.4f} - Train accuracy: {train_accuracy[-1]:.4f} - Test accuracy: {test_accuracy[-1]:.4f}")
-        torch.save(unet.state_dict(), config.MODEL_PATH)
+        torch.save(unet.state_dict(), config.MODEL_PATH + f"unet_{epoch + 1}_epoch.pth")
         print(f"Model saved to {config.MODEL_PATH}")
 
         print(f"Training completed in {time.time() - start_time:.2f} seconds")

@@ -29,7 +29,7 @@ def main():
         return
 
     # Load model
-    checkpoint_path = "checkpoints/model.pth"  # Replace with your checkpoint path
+    checkpoint_path = "checkpoints/model.pth" 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(checkpoint_path, device)
 
@@ -76,7 +76,7 @@ def main():
         masked_frame = frame * binary_mask[:, :, np.newaxis]  # Apply the mask to the frame
 
         # Combine the original frame, the mask, and the masked frame side by side
-        combined = np.hstack((frame, mask_colored, masked_frame))
+        combined = np.hstack((mask_colored, masked_frame))
 
         # Display the combined frame
         cv2.imshow("Webcam, Predicted Mask, and Masked Frame", combined)
