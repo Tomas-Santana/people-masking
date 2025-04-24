@@ -25,7 +25,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 BASE_OUTPUT = os.path.sep.join([OUTPUT_DIR, "output"])
 
-MODEL_PATH = os.path.abspath(os.path.join(CHECKPOINTS_DIR, "model.pth"))
+MODEL_PATH = os.path.abspath(os.path.join(CHECKPOINTS_DIR, "model_v2.pth"))
 PLOT_PATH = os.path.sep.join([BASE_OUTPUT, "plot.png"])
 TEST_PATHS = os.path.sep.join([BASE_OUTPUT, "test_paths.txt"])
 

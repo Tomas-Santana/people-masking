@@ -14,13 +14,19 @@ import time
 
 
 def main(checkpoint_path=None):
+    now = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
     image_paths = list(paths.list_images(config.IMAGES_DIR))
     mask_paths = list(paths.list_images(config.MASKS_DIR))
     images_train, images_test, masks_train, masks_test = train_test_split(
         image_paths, mask_paths, test_size=params.TRAIN_TEST_SPLIT, random_state=42
     )
 
-    image_transforms = transforms.Compose([transforms.ToPILImage(), transforms.Resize(config.INPUT_IMAGE_SIZE), transforms.ToTensor()])
+    image_transforms = transforms.Compose([
+        transforms.ToPILImage(), 
+        transforms.Resize(config.INPUT_IMAGE_SIZE), 
+        transforms.ToTensor(),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
+    ])
     train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms)
     test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms)
     train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
@@ -80,7 +86,8 @@ def main(checkpoint_path=None):
         test_accuracy.append(epoch_test_accuracy / test_steps)
 
         print(f"Epoch {epoch + 1}/{params.NUM_EPOCHS} - Train loss: {train_loss[-1]:.4f} - Test loss: {test_loss[-1]:.4f} - Train accuracy: {train_accuracy[-1]:.4f} - Test accuracy: {test_accuracy[-1]:.4f}")
-        torch.save(unet.state_dict(), config.MODEL_PATH + f"unet_{epoch + 1}_epoch.pth")
+        
+        torch.save(unet.state_dict(), config.MODEL_PATH)
         print(f"Model saved to {config.MODEL_PATH}")
 
         print(f"Training completed in {time.time() - start_time:.2f} seconds")
@@ -90,7 +97,7 @@ def main(checkpoint_path=None):
     print(f"Model saved to {config.OUTPUT_DIR}")
 
 if __name__ == "__main__":
-    main("./checkpoints/model.pth")
+    main()
 
             
 
