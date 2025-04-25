@@ -25,7 +25,6 @@ def main(checkpoint_path=None):
         transforms.ToPILImage(), 
         transforms.Resize(config.INPUT_IMAGE_SIZE), 
         transforms.ToTensor(),
-        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),
     ])
     train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms)
     test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms)
