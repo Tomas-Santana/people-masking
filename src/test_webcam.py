@@ -29,7 +29,7 @@ def main():
         return
 
     # Load model
-    checkpoint_path = "checkpoints/modelv1(0.85Acc).pth"
+    checkpoint_path = "checkpoints/model4Layer(0.84Acc)_48_epoch.pth"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(checkpoint_path, device)
 

@@ -3,19 +3,20 @@ import os
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-INPUT_IMAGE_SIZE = (128, 128)
+INPUT_IMAGE_SIZE = (64, 64)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-IMAGES_DIR = os.path.join("dataset", "images")
+IMAGES_DIR = os.path.join(PROJECT_ROOT, "dataset", "images")
 IMAGES_DIR = os.path.abspath(IMAGES_DIR)
 RESIZED_IMAGES_DIR = os.path.join("dataset", "resized_images")
 RESIZED_IMAGES_DIR = os.path.abspath(RESIZED_IMAGES_DIR)
 
-MASKS_DIR = os.path.join("dataset", "masks")
+MASKS_DIR = os.path.join(PROJECT_ROOT, "dataset", "masks")
 MASKS_DIR = os.path.abspath(MASKS_DIR)
 RESIZED_MASKS_DIR = os.path.join("dataset", "resized_masks")
 RESIZED_MASKS_DIR = os.path.abspath(RESIZED_MASKS_DIR)
 
-CHECKPOINTS_DIR = os.path.join("checkpoints")
+CHECKPOINTS_DIR = os.path.join(PROJECT_ROOT, "checkpoints")
 CHECKPOINTS_DIR = os.path.abspath(CHECKPOINTS_DIR)
 os.makedirs(CHECKPOINTS_DIR, exist_ok=True)
 
@@ -25,7 +26,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 BASE_OUTPUT = os.path.sep.join([OUTPUT_DIR, "output"])
 
-MODEL_PATH = os.path.abspath(os.path.join(CHECKPOINTS_DIR, "model.pth"))
+MODEL_PATH = os.path.abspath(os.path.join(PROJECT_ROOT, "checkpoints", "modelv1(0.85Acc).pth"))
 PLOT_PATH = os.path.sep.join([BASE_OUTPUT, "plot.png"])
 TEST_PATHS = os.path.sep.join([BASE_OUTPUT, "test_paths.txt"])
 

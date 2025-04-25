@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms as TF
 
+
 class UNET(nn.Module):
     def __init__(self, in_channels: int = 3, out_channels: int = 1):
         super(UNET, self).__init__()
@@ -10,33 +11,38 @@ class UNET(nn.Module):
         self.enc1 = EncoderBlock(in_channels, 64)
         self.enc2 = EncoderBlock(64, 128)
         self.enc3 = EncoderBlock(128, 256)
+        self.enc4 = EncoderBlock(256,512)
 
         # bottleneck
-        self.bottleneck = ConvBlock(256, 512)
+        self.bottleneck = ConvBlock(512, 1024)
 
         # decoder
+        self.dec4 = DecoderBlock(1024, 512)
         self.dec3 = DecoderBlock(512, 256)
         self.dec2 = DecoderBlock(256, 128)
         self.dec1 = DecoderBlock(128, 64)
 
         self.final_conv = nn.Conv2d(64, out_channels, kernel_size=1)
-    
+
     def forward(self, x):
         # Encoder
         enc1, p1 = self.enc1(x)
         enc2, p2 = self.enc2(p1)
         enc3, p3 = self.enc3(p2)
+        enc4, p4 = self.enc4(p3)
 
         # Bottleneck
-        bottleneck = self.bottleneck(p3)
+        bottleneck = self.bottleneck(p4)
 
         # Decoder
-        dec3 = self.dec3(bottleneck, enc3)
+        dec4 = self.dec4(bottleneck, enc4)
+        dec3 = self.dec3(dec4, enc3)
         dec2 = self.dec2(dec3, enc2)
         dec1 = self.dec1(dec2, enc1)
 
         return torch.sigmoid(self.final_conv(dec1))
-    
+
+
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ConvBlock, self).__init__()
@@ -44,6 +50,7 @@ class ConvBlock(nn.Module):
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
+            nn.Dropout2d(0.1),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
@@ -63,7 +70,8 @@ class EncoderBlock(nn.Module):
         x = self.conv(x)
         p = self.pool(x)
         return x, p
-    
+
+
 class DecoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels, bilinear=True):
         super(DecoderBlock, self).__init__()
@@ -71,15 +79,15 @@ class DecoderBlock(nn.Module):
             self.upconv = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         else:
             self.upconv = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-        
+
         # Adjust the input channels for the ConvBlock to account for concatenation
         self.conv = ConvBlock(in_channels + out_channels, out_channels)
 
     def forward(self, x1, x2):
         x1 = self.upconv(x1)
-        
+
         x = torch.cat((x2, x1), dim=1)
         return self.conv(x)
 
-            
-        
+
+

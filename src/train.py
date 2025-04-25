@@ -12,8 +12,7 @@ from tqdm import tqdm
 import torch
 import time
 
-
-def main(checkpoint_path=None):
+def main(checkpoint_path="checkpoints/model4Layer(0.84Acc)_48_epoch.pth"):
     image_paths = list(paths.list_images(config.IMAGES_DIR))
     mask_paths = list(paths.list_images(config.MASKS_DIR))
     images_train, images_test, masks_train, masks_test = train_test_split(
@@ -21,14 +20,14 @@ def main(checkpoint_path=None):
     )
 
     image_transforms = transforms.Compose([transforms.ToPILImage(), transforms.Resize(config.INPUT_IMAGE_SIZE), transforms.ToTensor()])
-    train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms)
-    test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms)
+    train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms, augment=True)
+    test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms, augment=False)
     train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
     test_loader = DataLoader(test_dataset, batch_size=params.BATCH_SIZE, shuffle=False, num_workers=params.NUM_WORKERS)
 
     if checkpoint_path:
         unet = UNET(in_channels=3, out_channels=1).to(config.DEVICE)
-        unet.load_state_dict(torch.load(checkpoint_path))
+        unet.load_state_dict(torch.load(checkpoint_path, map_location=config.DEVICE))
     else:
         unet = UNET(in_channels=3, out_channels=1).to(config.DEVICE)
     loss_fn = BCEWithLogitsLoss()
@@ -47,6 +46,7 @@ def main(checkpoint_path=None):
 
         epoch_loss = 0
         epoch_accuracy = 0
+        train_batch_count = 0
         epoch_test_loss = 0
         epoch_test_accuracy = 0
         for _, (images, masks) in enumerate(train_loader):
@@ -60,6 +60,11 @@ def main(checkpoint_path=None):
             optimizer.step()
 
             epoch_loss += loss.item()
+
+            with torch.no_grad():
+                pred_binary = (predictions > 0.5).float()
+                epoch_accuracy += (pred_binary == masks).float().mean().item()
+                train_batch_count += 1
         with torch.no_grad():
             unet.eval()
             for batch_idx, (images, masks) in enumerate(test_loader):
@@ -71,7 +76,7 @@ def main(checkpoint_path=None):
 
                 epoch_test_loss += loss.item()
                 epoch_test_accuracy += ((predictions > 0.5) == masks).float().mean().item()
-                epoch_accuracy += ((predictions > 0.5) == masks).float().mean().item()
+                #epoch_accuracy += ((predictions > 0.5) == masks).float().mean().item()
 
         train_loss.append(epoch_loss / train_steps)
         test_loss.append(epoch_test_loss / test_steps)
@@ -90,7 +95,7 @@ def main(checkpoint_path=None):
     print(f"Model saved to {config.OUTPUT_DIR}")
 
 if __name__ == "__main__":
-    main("./checkpoints/model.pth")
+    main(None)
 
             
 
