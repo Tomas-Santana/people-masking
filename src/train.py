@@ -71,7 +71,6 @@ def main(checkpoint_path=None):
 
                 epoch_test_loss += loss.item()
                 epoch_test_accuracy += ((predictions > 0.5) == masks).float().mean().item()
-                epoch_accuracy += ((predictions > 0.5) == masks).float().mean().item()
 
         train_loss.append(epoch_loss / train_steps)
         test_loss.append(epoch_test_loss / test_steps)
@@ -90,7 +89,8 @@ def main(checkpoint_path=None):
     print(f"Model saved to {config.OUTPUT_DIR}")
 
 if __name__ == "__main__":
-    main("./checkpoints/model.pth")
+    #main("./checkpoints/model.pth")
+    main()
 
             
 
