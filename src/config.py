@@ -3,7 +3,7 @@ import os
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-INPUT_IMAGE_SIZE = (64, 64)
+INPUT_IMAGE_SIZE = (128, 128)
 
 IMAGES_DIR = os.path.join("dataset", "images")
 IMAGES_DIR = os.path.abspath(IMAGES_DIR)

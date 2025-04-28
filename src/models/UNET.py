@@ -1,25 +1,24 @@
 from torch import nn
 import torch
-import torch.nn.functional as F
-import torchvision.transforms as TF
 
 class UNET(nn.Module):
     def __init__(self, in_channels: int = 3, out_channels: int = 1):
         super(UNET, self).__init__()
         # encoder
-        self.enc1 = EncoderBlock(in_channels, 32, kernel_size=5, padding=2)
-        self.enc2 = EncoderBlock(32, 64)
-        self.enc3 = EncoderBlock(64, 128)
+        self.enc1 = EncoderBlock(in_channels, 8, kernel_size=5, padding=2, double_conv=True)
+
+        self.enc2 = EncoderBlock(8, 16, double_conv=True)
+        self.enc3 = EncoderBlock(16, 32, double_conv=True)
 
         # bottleneck
-        self.bottleneck = ConvBlock(128, 256)
+        self.bottleneck = ConvBlock(32, 64, double_conv=True)
 
         # decoder
-        self.dec3 = DecoderBlock(256, 128)
-        self.dec2 = DecoderBlock(128, 64)
-        self.dec1 = DecoderBlock(64, 32)
+        self.dec3 = DecoderBlock(64, 32)
+        self.dec2 = DecoderBlock(32, 16)
+        self.dec1 = DecoderBlock(16, 8)
 
-        self.final_conv = nn.Conv2d(32, out_channels, kernel_size=1)
+        self.final_conv = nn.Conv2d(8, out_channels, kernel_size=1)
 
         self.dropout = nn.Dropout(0.1)
     
@@ -27,7 +26,6 @@ class UNET(nn.Module):
         # Encoder
         enc1, p1 = self.enc1(x)
         enc2, p2 = self.enc2(p1)
-        p2 = self.dropout(p2)  # Apply dropout after pooling
         enc3, p3 = self.enc3(p2)
 
         # Bottleneck
@@ -37,31 +35,40 @@ class UNET(nn.Module):
         # Decoder
         dec3 = self.dec3(bottleneck, enc3)
         dec2 = self.dec2(dec3, enc2)
-        dec2 = self.dropout(dec2)
         dec1 = self.dec1(dec2, enc1)
 
         return torch.sigmoid(self.final_conv(dec1))
     
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1):
+    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, double_conv=False):
         super(ConvBlock, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding),
+
+        steps = [
+            nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, padding=padding),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
+        ]
+
+        if double_conv:
+            steps = [
+                *steps,
+                nn.Conv2d(out_channels, out_channels, kernel_size, padding=padding),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True),
+            ]
+
+
+        self.conv = nn.Sequential(*steps)
+        
 
     def forward(self, x):
         return self.conv(x)
 
 
 class EncoderBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1):
+    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, double_conv=False):
         super(EncoderBlock, self).__init__()
-        self.conv = ConvBlock(in_channels, out_channels, kernel_size, padding)
+        self.conv = ConvBlock(in_channels, out_channels, kernel_size, padding, double_conv)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
     def forward(self, x):

@@ -11,6 +11,7 @@ from imutils import paths
 from tqdm import tqdm
 import torch
 import time
+from torch.optim.lr_scheduler import StepLR
 
 
 def main(checkpoint_path=None):
@@ -25,21 +26,20 @@ def main(checkpoint_path=None):
         transforms.ToPILImage(), 
         transforms.Resize(config.INPUT_IMAGE_SIZE), 
         transforms.ToTensor(),
-        transforms.RandomRotation([-10, 10]),
         transforms.RandomHorizontalFlip(),
+        transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
     ])
     train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms)
     test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms)
     train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
     test_loader = DataLoader(test_dataset, batch_size=params.BATCH_SIZE, shuffle=False, num_workers=params.NUM_WORKERS)
 
+    unet = UNET(in_channels=3, out_channels=1).to(config.DEVICE)
     if checkpoint_path:
-        unet = UNET(in_channels=3, out_channels=1).to(config.DEVICE)
         unet.load_state_dict(torch.load(checkpoint_path))
-    else:
-        unet = UNET(in_channels=3, out_channels=1).to(config.DEVICE)
     loss_fn = BCEWithLogitsLoss()
     optimizer = Adam(unet.parameters(), lr=params.LR)
+    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
     train_steps = len(train_loader)
     test_steps = len(test_loader)
 
@@ -49,7 +49,7 @@ def main(checkpoint_path=None):
     test_accuracy = []
     print("Starting training...")
     start_time = time.time()
-    for epoch in tqdm(range(params.NUM_EPOCHS)):
+    for epoch in range(params.NUM_EPOCHS):
         unet.train()
 
         epoch_loss = 0
@@ -65,11 +65,12 @@ def main(checkpoint_path=None):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
             epoch_loss += loss.item()
         with torch.no_grad():
             unet.eval()
-            for batch_idx, (images, masks) in enumerate(test_loader):
+            for batch_idx, (images, masks) in enumerate(tqdm(test_loader)):
                 images = images.to(config.DEVICE)
                 masks = masks.to(config.DEVICE)
 
