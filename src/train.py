@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import StepLR
 
 
 def main(checkpoint_path=None):
-    now = time.strftime("%Y-%m-%d-%H:%M:%S", time.localtime())
+
     image_paths = list(paths.list_images(config.IMAGES_DIR))
     mask_paths = list(paths.list_images(config.MASKS_DIR))
     images_train, images_test, masks_train, masks_test = train_test_split(
@@ -26,6 +26,7 @@ def main(checkpoint_path=None):
         transforms.ToPILImage(), 
         transforms.Resize(config.INPUT_IMAGE_SIZE), 
         transforms.ToTensor(),
+        # Augmentation
         transforms.RandomHorizontalFlip(),
         transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
     ])
@@ -60,6 +61,7 @@ def main(checkpoint_path=None):
             images = images.to(config.DEVICE)
             masks = masks.to(config.DEVICE)
 
+            # Prediction and loss calculation
             predictions = unet(images)
             loss = loss_fn(predictions, masks)
             optimizer.zero_grad()
@@ -69,6 +71,7 @@ def main(checkpoint_path=None):
 
             epoch_loss += loss.item()
         with torch.no_grad():
+            # Evaluation on test set
             unet.eval()
             for batch_idx, (images, masks) in enumerate(tqdm(test_loader)):
                 images = images.to(config.DEVICE)
@@ -96,7 +99,6 @@ def main(checkpoint_path=None):
     
     print("Training finished!")
     print(f"Total training time: {time.time() - start_time:.2f} seconds")
-    print(f"Model saved to {config.OUTPUT_DIR}")
 
 if __name__ == "__main__":
     main()
