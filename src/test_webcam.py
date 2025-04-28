@@ -20,7 +20,7 @@ def preprocess_frame(frame, input_size):
         TL.ToTensor()
     ])
     image = transformations(frame)
-    return image.unsqueeze(0)  # Add batch dimension
+    return image.unsqueeze(0) 
 
 def main():
     # Open webcam
@@ -29,13 +29,11 @@ def main():
         print("Error: Could not open webcam.")
         return
 
-    # Load model
     checkpoint_path = "checkpoints/model_v2.pth" 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(checkpoint_path, device)
 
-    # Input size for preprocessing
-    input_size = config.INPUT_IMAGE_SIZE  # Ensure this matches your training configuration
+    input_size = config.INPUT_IMAGE_SIZE 
 
     while True:
         ret, frame = webcam.read()
@@ -49,7 +47,7 @@ def main():
             predicted_mask = model(image)
             predicted_mask = (predicted_mask > 0.5).float()  
 
-            target_size = (frame.shape[1], frame.shape[0])  # (width, height)
+            target_size = (frame.shape[1], frame.shape[0]) 
             predicted_mask = torch.nn.functional.interpolate(predicted_mask, size=target_size, mode="bilinear", align_corners=False, antialias=True)
 
         mask = predicted_mask.squeeze().cpu().numpy()  
@@ -69,18 +67,14 @@ def main():
 
         masked_frame = frame * binary_mask[:, :, np.newaxis]  
 
-        # Combine the original frame, the mask, and the masked frame side by side
         combined = np.hstack((mask_colored, masked_frame))
 
-        # Display the combined frame
         cv2.imshow("Webcam, Predicted Mask, and Masked Frame", combined)
 
 
-        # Break the loop on 'q' key press
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-    # Release the webcam and close all OpenCV windows
     webcam.release()
     cv2.destroyAllWindows()
 
