@@ -6,21 +6,6 @@ import torchvision.transforms as TF
 class UNET(nn.Module):
     def __init__(self, in_channels: int = 3, out_channels: int = 1):
         super(UNET, self).__init__()
-        # # encoder
-        # self.enc1 = EncoderBlock(in_channels, 64)
-        # self.enc2 = EncoderBlock(64, 128)
-        # self.enc3 = EncoderBlock(128, 256)
-        #
-        # # bottleneck
-        # self.bottleneck = ConvBlock(256, 512)
-        #
-        # # decoder
-        # self.dec3 = DecoderBlock(512, 256)
-        # self.dec2 = DecoderBlock(256, 128)
-        # self.dec1 = DecoderBlock(128, 64)
-        #
-        # self.final_conv = nn.Conv2d(64, out_channels, kernel_size=1)
-        # encoder
         self.enc1 = EncoderBlock(in_channels, 16)
         self. enc2 = EncoderBlock(16, 32)
 
