@@ -65,7 +65,7 @@ def visualize_webcam_result(frame, mask):
 
 def main():
     # Path to the image and model checkpoint
-    images_dir = config.IMAGES_DIR  # Directory containing test images
+    images_dir = config.TRAIN_IMAGES_DIR  # Directory containing test images
     images_path = list(paths.list_images(images_dir))
     #load a random image from the directory
     

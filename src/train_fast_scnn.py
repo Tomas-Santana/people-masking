@@ -1,8 +1,8 @@
 import cv2
-from data import PeopleMaskingDataset
-from models.FastSCNN import fastscnn
-import config
-import params
+from src.data import PeopleMaskingDataset
+from src.models.FastSCNN import get_fast_scnn
+import src.config as config
+import src.params as params
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -20,12 +20,18 @@ def train():
         image_paths, mask_paths, test_size=params.TRAIN_TEST_SPLIT, random_state=42
     )
 
-    transformations = transforms.Compose([transforms.ToPILImage(), transforms.Resize(config.INPUT_IMAGE_SIZE), transforms.ToTensor()])
-    train_dataset = PeopleMaskingDataset(images_train, masks_train, transformations)
-    test_dataset = PeopleMaskingDataset(images_test, masks_test, transformations)
+    image_transforms = transforms.Compose([
+        transforms.ToPILImage(), 
+        transforms.Resize(config.INPUT_IMAGE_SIZE), 
+        transforms.ToTensor(),
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.9, 1.1)),
+    ])
+    train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms)
+    test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms)
     train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
     test_loader = DataLoader(test_dataset, batch_size=params.BATCH_SIZE, shuffle=False, num_workers=params.NUM_WORKERS)
-    model = fastscnn().to(config.DEVICE)
+    model = get_fast_scnn(checkpoint_path=None, device=config.DEVICE, num_classes=1)
 
     loss_fn = BCEWithLogitsLoss()
     optimizer = Adam(model.parameters(), lr=params.LR)
@@ -51,7 +57,10 @@ def train():
             masks = masks.to(config.DEVICE)
 
             predictions = model(images)
-            loss = loss_fn(predictions, masks)
+
+            print(type(predictions[0]))
+            
+            loss = loss_fn(predictions[0], masks)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -64,11 +73,11 @@ def train():
                 masks = masks.to(config.DEVICE)
 
                 predictions = model(images)
-                loss = loss_fn(predictions, masks)
+                loss = loss_fn(predictions[0], masks)
 
                 epoch_test_loss += loss.item()
                 # Calculate accuracy
-                predictions = torch.sigmoid(predictions)
+                predictions = torch.sigmoid(predictions[0])
                 predictions = (predictions > 0.5).float()
                 epoch_test_accuracy += ((predictions == masks).float()).mean().item()
                 epoch_accuracy += ((predictions == masks).float()).mean().item()
@@ -89,26 +98,6 @@ def train():
         torch.save(model.state_dict(), config.MODEL_PATH)
         print(f"Model saved to {config.MODEL_PATH}")
         print(f"Training completed in {time.time() - start_time:.2f} seconds")
-
-def demo():
-    model = fastscnn().to(config.DEVICE)
-    model.load_state_dict(torch.load(config.MODEL_PATH, map_location=config.DEVICE))
-    model.eval()
-
-    image_path = "path_to_your_image.jpg"
-    image = cv2.imread(image_path)
-    image = cv2.resize(image, config.INPUT_IMAGE_SIZE)
-    image = transforms.ToTensor()(image).unsqueeze(0).to(config.DEVICE)
-
-    with torch.no_grad():
-        output = model(image)
-        output = torch.sigmoid(output)
-        output = (output > 0.5).float()
-
-    output_image = output.squeeze().cpu().numpy()
-    cv2.imshow("Output", output_image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
     
 if __name__ == "__main__":
     train()

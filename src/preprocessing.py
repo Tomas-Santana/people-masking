@@ -1,28 +1,49 @@
 import os
 from imutils import paths
 import cv2
-import config
+import src.config as config
 import tqdm
+from torchvision import transforms
 
-images_paths = list(paths.list_images(config.IMAGES_DIR))
-masks_paths = list(paths.list_images(config.MASKS_DIR))
+images_paths = list(paths.list_images(config.TRAIN_IMAGES_DIR))
+masks_paths = list(paths.list_images(config.TRAIN_MASKS_DIR))
+
+test_images_paths = list(paths.list_images(config.TEST_IMAGES_DIR))
+test_masks_paths = list(paths.list_images(config.TEST_MASKS_DIR))
+
+image_transforms = transforms.Compose([
+    transforms.ToPILImage(), 
+    transforms.Resize(config.INPUT_IMAGE_SIZE), 
+    transforms.Grayscale(),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0], std=[1]),
+    transforms.GaussianBlur(kernel_size=5),
+    transforms.ToPILImage(),
+    
+])
 
 
-def resize_images_and_masks(images_paths: list[str], masks_paths: list[str], size: tuple[int]) -> None:
-    for image_path in tqdm.tqdm(images_paths, desc="Resizing images"):
-        filename = image_path.split(os.path.sep)[-1]
+def preprocess(images, masks, transforms, desc):
+    for image_path, mask_path in tqdm.tqdm(zip(images, masks), total=len(images), desc=desc):
         image = cv2.imread(image_path)
-        image = cv2.resize(image, size)
-        cv2.imwrite(os.path.join(config.RESIZED_IMAGES_DIR, filename), image)
+        mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
-    for mask_path in tqdm.tqdm(masks_paths, desc="Resizing masks"):
-        filename = mask_path.split(os.path.sep)[-1]
-        mask = cv2.imread(mask_path, 0)
-        mask = cv2.resize(mask, size)
-        cv2.imwrite(os.path.join(config.RESIZED_MASKS_DIR, filename), mask)
+        image = transforms(image)
+        mask = transforms(mask)
+
+        # Save the preprocessed images and masks
+        image_name = os.path.basename(image_path)
+        mask_name = os.path.basename(mask_path)
+        image.save(os.path.join(config.PREPROCESSED_TRAIN_IMAGES_DIR, image_name))
+        mask.save(os.path.join(config.PREPROCESSED_TRAIN_MASKS_DIR, mask_name))
 
 
 if __name__ == "__main__":
-    os.makedirs(config.RESIZED_IMAGES_DIR, exist_ok=True)
-    os.makedirs(config.RESIZED_MASKS_DIR, exist_ok=True)
-    resize_images_and_masks(images_paths, masks_paths, config.INPUT_IMAGE_SIZE)
+    # os.makedirs(config.PREPROCESSED_TRAIN_IMAGES_DIR, exist_ok=True)
+    # os.makedirs(config.PREPROCESSED_TRAIN_MASKS_DIR, exist_ok=True)
+
+    # preprocess(images_paths, masks_paths, image_transforms, "Preprocessing train images and masks")
+    os.makedirs(config.PREPROCESSED_TEST_IMAGES_DIR, exist_ok=True)
+    os.makedirs(config.PREPROCESSED_TEST_MASKS_DIR, exist_ok=True)
+    preprocess(test_images_paths, test_masks_paths, image_transforms, "Preprocessing test images and masks")
+    print("Preprocessing completed.")
