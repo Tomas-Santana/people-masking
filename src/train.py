@@ -19,10 +19,13 @@ from torch.optim.lr_scheduler import StepLR
 
 def main(checkpoint_path=None):
 
-    masks: list[str] = list(paths.list_images(config.PREPROCESSED_TRAIN_MASKS_DIR))
-    images = [str(p).replace("masks", "images") for p in masks]
-    # random sample 25% of the images and masks
-    # images, _, masks, _ = train_test_split(images, masks, test_size=0.75, random_state=42)
+    masks: list[str] =  list(paths.list_images(config.PREPROCESSED_TRAIN_SELFIES_MASKS_DIR))
+    images = list(paths.list_images(config.PREPROCESSED_TRAIN_SELFIES_DIR))
+    # random sample 50% of the images and masks from the selfie dataset
+    images, _, masks, _ = train_test_split(images, masks, test_size=0.5, random_state=42)
+    # add the original dataset images and masks to the list
+    images += list(paths.list_images(config.PREPROCESSED_TRAIN_IMAGES_DIR))
+    masks += list(paths.list_images(config.PREPROCESSED_TRAIN_MASKS_DIR))
     
     
     
@@ -105,7 +108,7 @@ def main(checkpoint_path=None):
     print(f"Total training time: {time.time() - start_time:.2f} seconds")
 
 if __name__ == "__main__":
-    main("checkpoints/model_v3_selfies.pth")
+    main()
 
             
 

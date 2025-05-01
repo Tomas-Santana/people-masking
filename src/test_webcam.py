@@ -26,11 +26,12 @@ def preprocess_frame(frame, input_size):
 def main():
     # Open webcam
     webcam = cv2.VideoCapture(0)
+    webcam.set(cv2.CAP_PROP_EXPOSURE, -1)
     if not webcam.isOpened():
         print("Error: Could not open webcam.")
         return
 
-    checkpoint_path = "checkpoints/model_v3_selfies+og.pth" 
+    checkpoint_path = "checkpoints/model_v3_selfies+og_doubleconv.pth" 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(checkpoint_path, device)
 

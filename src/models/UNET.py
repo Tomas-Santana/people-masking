@@ -8,19 +8,14 @@ class UNET(nn.Module):
         # N = 256
 
         # going down
-        self.in_to_over1 = nn.Conv2d(in_channels=in_channels, out_channels=max_channels//32, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(max_channels//32)
-        self.over1_to_down2 = nn.Conv2d(in_channels=max_channels//32, out_channels=max_channels//16, kernel_size=3, padding=1)  # 1/2
-        self.bn2 = nn.BatchNorm2d(max_channels//16)
-        self.down2_to_down3 = nn.Conv2d(in_channels=max_channels//16, out_channels=max_channels//8, kernel_size=3, padding=1)  # 1/4
-        self.bn3 = nn.BatchNorm2d(max_channels//8)
-        self.down3_to_down4 = nn.Conv2d(in_channels=max_channels//8, out_channels=max_channels//4, kernel_size=3, padding=1)  # 1/8
-        self.bn4 = nn.BatchNorm2d(max_channels//4)
-        self.down4_to_down5 = nn.Conv2d(in_channels=max_channels//4, out_channels=max_channels//2, kernel_size=3, padding=1)  # 1/16
-        self.bn5 = nn.BatchNorm2d(max_channels//2)
+        self.in_to_over1 = ConvBlock(in_channels=in_channels, out_channels=max_channels//32, kernel_size=3, padding=1, double_conv=True)  # 1/2
+        self.over1_to_down2 = ConvBlock(in_channels=max_channels//32, out_channels=max_channels//16, kernel_size=3, padding=1, double_conv=True)  # 1/2
+        self.down2_to_down3 = ConvBlock(in_channels=max_channels//16, out_channels=max_channels//8, kernel_size=3, padding=1, double_conv=True)  # 1/4
+        self.down3_to_down4 = ConvBlock(in_channels=max_channels//8, out_channels=max_channels//4, kernel_size=3, padding=1, double_conv=True)  # 1/8
+        self.down4_to_down5 = ConvBlock(in_channels=max_channels//4, out_channels=max_channels//2, kernel_size=3, padding=1, double_conv=True)  # 1/16
 
         # horizontal
-        self.down5_to_over6 = nn.Conv2d(in_channels=max_channels//2, out_channels=max_channels, kernel_size=1)
+        self.down5_to_over6 = ConvBlock(in_channels=max_channels//2, out_channels=max_channels, kernel_size=3, padding=1)  
 
         # going up
         self.over6_to_up7 = nn.ConvTranspose2d(in_channels=max_channels, out_channels=max_channels//2, kernel_size=4, stride=2, padding=1)  # 1/8
@@ -31,25 +26,25 @@ class UNET(nn.Module):
 
     def forward(self, x):
         # 128 x 128 image
-        x = F.relu(self.bn1(self.in_to_over1(x)))
+        x = self.in_to_over1(x)  
         # z.shape: torch.Size([1, 16, 128, 128])
-        z = F.relu(self.bn2(self.over1_to_down2(x)))
+        z = self.over1_to_down2(x)
         x = F.max_pool2d(z, kernel_size=2)  # 1/2 x 1/2
         # now: 64 x 64 image
         # y.shape: torch.Size([1, 32, 64, 64])
-        y = F.relu(self.bn3(self.down2_to_down3(x)))
+        y = self.down2_to_down3(x)
         x = F.max_pool2d(y, kernel_size=2)  # 1/4 x 1/4
         # now: 32 x 32 image
         # z.shape: torch.Size([1, 64, 32, 32])
-        z = F.relu(self.bn4(self.down3_to_down4(x)))
+        z = self.down3_to_down4(x)
         x = F.max_pool2d(z, kernel_size=2)  # 1/8 x 1/8
         # now: 16 x 16 image
         # w.shape: torch.Size([1, 128, 16, 16])
-        w = F.relu(self.bn5(self.down4_to_down5(x)))
+        w = self.down4_to_down5(x)
         x = F.max_pool2d(w, kernel_size=2)  # 1/16 x 1/16
         # now: 8 x 8 image
 
-        x = F.relu(self.down5_to_over6(x))
+        x = self.down5_to_over6(x)
 
         x = F.relu(self.over6_to_up7(x))  # 1/8 x 1/8
         # now: 16 x 16 image
@@ -64,22 +59,21 @@ class UNET(nn.Module):
 
     
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1):
+    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, double_conv=False):
         super(ConvBlock, self).__init__()
 
         steps = [
-            nn.Conv2d(in_channels, out_channels, kernel_size, padding=padding),
-            # nn.BatchNorm2d(out_channels),
-            # nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=padding),
+            nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
         ]
 
-        # if double_conv:
-        #     steps = [
-        #         *steps,
-        #         nn.Conv2d(out_channels, out_channels, kernel_size, padding=padding),
-        #         # nn.BatchNorm2d(out_channels),
-        #         nn.ReLU(inplace=True),
-        #     ]
+        if double_conv:
+            steps += [
+                nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, padding=padding),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True),
+            ]
 
 
         self.conv = nn.Sequential(*steps)
