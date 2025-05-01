@@ -1,28 +1,39 @@
+import torch
 from torch.utils.data import Dataset
 import cv2
+import torchvision.transforms.functional as TF
+from PIL import Image
+import random
 
 
 class PeopleMaskingDataset(Dataset):
-    def __init__(self, image_paths: list[str], mask_paths: list[str], transform=None):
+    def __init__(self, image_paths: list[str], mask_paths: list[str], augment = True):
         self.image_paths = image_paths
         self.mask_paths = mask_paths
-        self.transform = transform
+        self.augment = augment
 
     def __len__(self):
         return len(self.image_paths)
     
     def __getitem__(self, idx):
-        image_path: str = self.image_paths[idx]
-        mask_path: str = self.mask_paths[idx]
+        image = cv2.imread(self.image_paths[idx], cv2.IMREAD_GRAYSCALE)
+        mask = cv2.imread(self.mask_paths[idx], cv2.IMREAD_GRAYSCALE)
 
-        image = cv2.imread(image_path)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        mask = cv2.imread(mask_path, 0)
+        # Convert to tensors early, since TF.* expects tensors in your version
+        image = torch.tensor(image, dtype=torch.float32).unsqueeze(0) / 255.0  # [1, H, W]
+        mask = torch.tensor(mask, dtype=torch.float32).unsqueeze(0) / 255.0    # [1, H, W]
 
-        if self.transform:
-            image = self.transform(image)
-            mask = self.transform(mask)
+        if self.augment:
+            if random.random() > 0.5:
+                image = TF.hflip(image)
+                mask = TF.hflip(mask)
 
+            angle = random.uniform(-15, 15)
+            translate = [random.uniform(-0.1, 0.1) * image.shape[2], random.uniform(-0.1, 0.1) * image.shape[1]]
+            scale = random.uniform(0.8, 1.2)
+            shear = random.uniform(-10, 10)
+            image = TF.affine(image, angle=angle, translate=translate, scale=scale, shear=[shear, 0])
+            mask = TF.affine(mask, angle=angle, translate=translate, scale=scale, shear=[shear, 0])
+
+        mask = (mask > 0.5).float()
         return image, mask
-
-        

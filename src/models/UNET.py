@@ -21,8 +21,6 @@ class UNET(nn.Module):
 
         self.final_conv = nn.Conv2d(channel_factor, out_channels, kernel_size=1)
 
-        self.dropout = nn.Dropout(0.1)
-
     def forward(self, x):
         # Encoder
         enc1, p1 = self.enc1(x)

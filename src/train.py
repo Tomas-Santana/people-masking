@@ -1,3 +1,6 @@
+import random
+
+import cv2
 from numpy.f2py.auxfuncs import throw_error
 
 from src.data import PeopleMaskingDataset
@@ -7,13 +10,13 @@ import src.params as params
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
 from torchvision import transforms
 from imutils import paths
 from tqdm import tqdm
 import torch
 import time
 from torch.optim.lr_scheduler import StepLR
+import numpy as np
 
 
 def main(checkpoint_path=None):
@@ -58,9 +61,21 @@ def main(checkpoint_path=None):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
-
             epoch_loss += loss.item()
+
+            # display
+            image, mask = dataset.__getitem__(random.randint(0, len(dataset) - 1))
+
+            with torch.no_grad():
+                unet.eval()
+                out = (unet(image.view(1, 1, *config.INPUT_IMAGE_SIZE).to(config.DEVICE)).view(
+                    *config.INPUT_IMAGE_SIZE).cpu().numpy() > 0) * 1.0
+                unet.train()
+            mask = mask.view(*config.INPUT_IMAGE_SIZE).cpu().numpy()
+            out = np.concatenate((out, mask), axis=1)
+            cv2.imshow("Predicted / Actual", np.uint8(255 * out))
+            cv2.waitKey(1)
+
         scheduler.step()
         running_loss.append(epoch_loss / steps)
 
@@ -69,7 +84,7 @@ def main(checkpoint_path=None):
         torch.save(unet.state_dict(), config.MODEL_PATH)
         print(f"Model saved to {config.MODEL_PATH}")
 
-        print(f"Training completed in {time.time() - start_time:.2f} seconds")
+        print(f"Epoch completed in {time.time() - start_time:.2f} seconds")
     
     print("Training finished!")
     print(f"Total training time: {time.time() - start_time:.2f} seconds")

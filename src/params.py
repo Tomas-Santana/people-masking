@@ -1,6 +1,5 @@
 import os
 
-
 LR = 0.001
 NUM_EPOCHS = 5
 BATCH_SIZE = 32
