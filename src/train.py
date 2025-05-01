@@ -1,3 +1,5 @@
+from numpy.f2py.auxfuncs import throw_error
+
 from src.data import PeopleMaskingDataset
 from src.models.UNET import UNET
 import src.config as config
@@ -16,31 +18,20 @@ from torch.optim.lr_scheduler import StepLR
 
 def main(checkpoint_path=None):
 
-    masks: list[str] = list(paths.list_images(config.PREPROCESSED_TRAIN_MASKS_DIR))
-    images = list(paths.list_images(config.PREPROCESSED_TRAIN_IMAGES_DIR))
-    
-    images_train, images_test, masks_train, masks_test = train_test_split(images, masks, train_size=params.TRAIN_TEST_SPLIT, random_state=42)
-    print(f"Number of training images: {len(images_train)}")
-    print(f"Number of testing images: {len(images_test)}")
-    print(f"Number of training masks: {len(masks_train)}")
-    print(f"Number of testing masks: {len(masks_test)}")
-    
+    masks: list[str] = list(paths.list_images(config.PREPROCESSED_MASKS_DIR))
+    images = list(paths.list_images(config.PREPROCESSED_IMAGES_DIR))
+    if (len(masks) != len(images)):
+        throw_error(f"Number of masks and images do not match")
 
     image_transforms = transforms.Compose([
-        transforms.ToPILImage(), 
-        # transforms.Resize(config.INPUT_IMAGE_SIZE), 
+        transforms.ToPILImage(),
         transforms.Grayscale(),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=[0], std=[1]),
-        # transforms.GaussianBlur(kernel_size=5),
-        # Augmentation
         transforms.RandomHorizontalFlip(),
         transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
     ])
-    train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms)
-    test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms)
-    train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
-    test_loader = DataLoader(test_dataset, batch_size=params.BATCH_SIZE, shuffle=False, num_workers=params.NUM_WORKERS)
+    dataset = PeopleMaskingDataset(images, masks, image_transforms)
+    loader = DataLoader(dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
 
     unet = UNET(in_channels=1, out_channels=1).to(config.DEVICE)
     if checkpoint_path:
@@ -48,27 +39,18 @@ def main(checkpoint_path=None):
     loss_fn = BCEWithLogitsLoss()
     optimizer = Adam(unet.parameters(), lr=params.LR, weight_decay=1e-5)
     scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
-    train_steps = len(train_loader)
-    test_steps = len(test_loader)
-    print(f"Number of training steps: {train_steps}")
-    print(f"Number of testing steps: {test_steps}")
+    steps = len(loader)
+    print(f"Number of training steps: {steps}")
 
-    train_loss = []
-    test_loss = []
-    train_accuracy = []
-    test_accuracy = []
+    # Loss Calculation
+    running_loss = []
     print("Starting training...")
     start_time = time.time()
     for epoch in range(params.NUM_EPOCHS):
         unet.train()
 
         epoch_loss = 0
-        epoch_accuracy = 0
-        epoch_test_loss = 0
-        epoch_test_accuracy = 0
-        for _, (images, masks) in enumerate(tqdm(train_loader)):
-            images = images.to(config.DEVICE)
-            masks = masks.to(config.DEVICE)
+        for _, (images, masks) in enumerate(tqdm(loader)):
 
             # Prediction and loss calculation
             predictions = unet(images)
@@ -76,34 +58,13 @@ def main(checkpoint_path=None):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            scheduler.step()
+
 
             epoch_loss += loss.item()
+        scheduler.step()
+        running_loss.append(epoch_loss / steps)
 
-        
-        with torch.no_grad():
-            # Evaluation on test set
-            unet.eval()
-            if epoch % params.TEST_EVERY == 0:
-                for batch_idx, (images, masks) in enumerate(tqdm(test_loader)):
-                    images = images.to(config.DEVICE)
-                    masks = masks.to(config.DEVICE)
-
-                    predictions = unet(images)
-                    loss = loss_fn(predictions, masks)
-
-                    epoch_test_loss += loss.item()
-                    epoch_test_accuracy += ((predictions > 0.5) == masks).float().mean().item()
-
-
-        train_loss.append(epoch_loss / train_steps)
-
-        train_accuracy.append(epoch_accuracy / train_steps)
-        if epoch % params.TEST_EVERY == 0:
-            test_loss.append(epoch_test_loss / test_steps)
-            test_accuracy.append(epoch_test_accuracy / test_steps)
-
-        print(f"Epoch {epoch + 1}/{params.NUM_EPOCHS} - Train loss: {train_loss[-1]:.4f} - Test loss: {test_loss[-1]:.4f} - Train accuracy: {train_accuracy[-1]:.4f} - Test accuracy: {test_accuracy[-1]:.4f}")
+        print(f"Epoch {epoch + 1}/{params.NUM_EPOCHS} - loss: {running_loss[-1]:.4f}")
         
         torch.save(unet.state_dict(), config.MODEL_PATH)
         print(f"Model saved to {config.MODEL_PATH}")

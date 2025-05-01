@@ -5,11 +5,8 @@ import src.config as config
 import tqdm
 from torchvision import transforms
 
-images_paths = list(paths.list_images(config.TRAIN_IMAGES_DIR))
-masks_paths = list(paths.list_images(config.TRAIN_MASKS_DIR))
-
-test_images_paths = list(paths.list_images(config.TEST_IMAGES_DIR))
-test_masks_paths = list(paths.list_images(config.TEST_MASKS_DIR))
+images_paths = list(paths.list_images(config.IMAGES_DIR))
+masks_paths = list(paths.list_images(config.MASKS_DIR))
 
 image_transforms = transforms.Compose([
     transforms.ToPILImage(), 
@@ -19,9 +16,7 @@ image_transforms = transforms.Compose([
     transforms.Normalize(mean=[0], std=[1]),
     transforms.GaussianBlur(kernel_size=5),
     transforms.ToPILImage(),
-    
 ])
-
 
 def preprocess(images, masks, transforms, desc):
     for image_path, mask_path in tqdm.tqdm(zip(images, masks), total=len(images), desc=desc):
@@ -34,16 +29,14 @@ def preprocess(images, masks, transforms, desc):
         # Save the preprocessed images and masks
         image_name = os.path.basename(image_path)
         mask_name = os.path.basename(mask_path)
-        image.save(os.path.join(config.PREPROCESSED_TRAIN_IMAGES_DIR, image_name))
-        mask.save(os.path.join(config.PREPROCESSED_TRAIN_MASKS_DIR, mask_name))
+        image.save(os.path.join(config.PREPROCESSED_IMAGES_DIR, image_name))
+        mask.save(os.path.join(config.PREPROCESSED_MASKS_DIR, mask_name))
 
 
 if __name__ == "__main__":
-    # os.makedirs(config.PREPROCESSED_TRAIN_IMAGES_DIR, exist_ok=True)
-    # os.makedirs(config.PREPROCESSED_TRAIN_MASKS_DIR, exist_ok=True)
+    os.makedirs(config.PREPROCESSED_IMAGES_DIR, exist_ok=True)
+    os.makedirs(config.PREPROCESSED_MASKS_DIR, exist_ok=True)
 
-    # preprocess(images_paths, masks_paths, image_transforms, "Preprocessing train images and masks")
-    os.makedirs(config.PREPROCESSED_TEST_IMAGES_DIR, exist_ok=True)
-    os.makedirs(config.PREPROCESSED_TEST_MASKS_DIR, exist_ok=True)
-    preprocess(test_images_paths, test_masks_paths, image_transforms, "Preprocessing test images and masks")
+    preprocess(images_paths, masks_paths, image_transforms, "Preprocessing images and masks")
+    os.makedirs(config.PREPROCESSED_IMAGES_DIR, exist_ok=True)
     print("Preprocessing completed.")
