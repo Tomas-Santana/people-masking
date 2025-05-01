@@ -2,6 +2,7 @@ import torchvision
 from torch.utils.data import Dataset
 import torchvision.transforms.functional as TF
 from torchvision.transforms import ColorJitter
+import torchvision.transforms.v2 as TVtransforms
 import random
 import torch
 import cv2
@@ -35,11 +36,11 @@ class PeopleMaskingDataset(Dataset):
         # Apply data augmentation
         if self.augment:
             if random.random() > 0.5:
-                if random.random() > 0.5:
+                if random.random() > 0.25:
                     image = TF.hflip(image)
                     mask = TF.hflip(mask)
 
-                if random.random() > 0.5:
+                if random.random() > 0.25:
                     image = TF.vflip(image)
                     mask = TF.vflip(mask)
 
@@ -52,9 +53,8 @@ class PeopleMaskingDataset(Dataset):
                     image = self.color_jitter(image)
 
                 if random.random() > 0.5:
-                    noise = torch.randn_like(image) * 0.05  # mean=0, std=0.05
-                    image = image + noise
-                    image = torch.clamp(image, 0., 1.)  # keep pixel values in [0, 1]
+                    gaussian_noise = TVtransforms.GaussianNoise(mean=0, sigma=0.1)
+                    image = gaussian_noise(image)
 
         return image, mask
 

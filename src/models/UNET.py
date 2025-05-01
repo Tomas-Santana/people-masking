@@ -7,22 +7,26 @@ import torchvision.transforms as TF
 class UNET(nn.Module):
     def __init__(self, in_channels: int = 3, out_channels: int = 1):
         super(UNET, self).__init__()
+        N = 128
         # encoder
-        self.enc1 = EncoderBlock(in_channels, 64)
-        self.enc2 = EncoderBlock(64, 128)
-        self.enc3 = EncoderBlock(128, 256)
-        self.enc4 = EncoderBlock(256,512)
+        self.enc1 = EncoderBlock(in_channels, N)
+        self.enc2 = EncoderBlock(N, N)
+        self.enc3 = EncoderBlock(N, N)
+        self.enc4 = EncoderBlock(N, N)
+        self.enc5 = EncoderBlock(N, N)
+
 
         # bottleneck
-        self.bottleneck = ConvBlock(512, 1024)
+        self.bottleneck = ConvBlock(N, N)
 
         # decoder
-        self.dec4 = DecoderBlock(1024, 512)
-        self.dec3 = DecoderBlock(512, 256)
-        self.dec2 = DecoderBlock(256, 128)
-        self.dec1 = DecoderBlock(128, 64)
+        self.dec5 = DecoderBlock(N, N)
+        self.dec4 = DecoderBlock(N, N)
+        self.dec3 = DecoderBlock(N, N)
+        self.dec2 = DecoderBlock(N, N)
+        self.dec1 = DecoderBlock(N, N)
 
-        self.final_conv = nn.Conv2d(64, out_channels, kernel_size=1)
+        self.final_conv = nn.Conv2d(N, out_channels, kernel_size=1)
 
     def forward(self, x):
         # Encoder
@@ -30,12 +34,14 @@ class UNET(nn.Module):
         enc2, p2 = self.enc2(p1)
         enc3, p3 = self.enc3(p2)
         enc4, p4 = self.enc4(p3)
+        enc5, p5 = self.enc5(p4)
 
         # Bottleneck
-        bottleneck = self.bottleneck(p4)
+        bottleneck = self.bottleneck(p5)
 
         # Decoder
-        dec4 = self.dec4(bottleneck, enc4)
+        dec5 = self.dec5(bottleneck, enc5)
+        dec4 = self.dec4(dec5, enc4)
         dec3 = self.dec3(dec4, enc3)
         dec2 = self.dec2(dec3, enc2)
         dec1 = self.dec1(dec2, enc1)
@@ -44,16 +50,16 @@ class UNET(nn.Module):
 
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, kernel_size=3):
         super(ConvBlock, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels, out_channels, kernel_size, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
-            nn.Dropout2d(0.1),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
+            # nn.Dropout2d(0.1),
+            # nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+            # nn.BatchNorm2d(out_channels),
+            # nn.ReLU(inplace=True)
         )
 
     def forward(self, x):

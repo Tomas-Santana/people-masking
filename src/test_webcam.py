@@ -7,18 +7,19 @@ import cv2
 import numpy as np
 
 def load_model(checkpoint_path, device):
-    model = UNET().to(device)
+    model = UNET(in_channels=1).to(device)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model.eval()
     return model
 
 def preprocess_frame(frame, input_size):
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     transformations = TL.Compose([
         TL.ToPILImage(),
         TL.Resize(input_size),
         TL.ToTensor()
     ])
-    image = transformations(frame)
+    image = transformations(gray_frame)
     return image.unsqueeze(0)  # Add batch dimension
 
 def main():
@@ -29,7 +30,7 @@ def main():
         return
 
     # Load model
-    checkpoint_path = "checkpoints/model4Layer(0.84Acc)_48_epoch.pth"
+    checkpoint_path = "checkpoints/modelv1(0.85Acc).pthunet_10_epoch.pth"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(checkpoint_path, device)
 
