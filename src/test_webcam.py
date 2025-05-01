@@ -26,7 +26,7 @@ def preprocess_frame(frame, input_size):
 def main():
     # Open webcam
     webcam = cv2.VideoCapture(0)
-    webcam.set(cv2.CAP_PROP_EXPOSURE, -1)
+    webcam.set(cv2.CAP_PROP_EXPOSURE, -4)
     if not webcam.isOpened():
         print("Error: Could not open webcam.")
         return
