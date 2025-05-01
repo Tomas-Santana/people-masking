@@ -1,3 +1,6 @@
+import random
+import cv2
+import numpy as np
 from src.data import PeopleMaskingDataset
 from src.models.UNET import UNET
 import src.config as config
@@ -17,55 +20,47 @@ from torch.optim.lr_scheduler import StepLR
 def main(checkpoint_path=None):
 
     masks: list[str] = list(paths.list_images(config.PREPROCESSED_TRAIN_MASKS_DIR))
-    images = list(paths.list_images(config.PREPROCESSED_TRAIN_IMAGES_DIR))
+    images = [str(p).replace("masks", "images") for p in masks]
+    # random sample 25% of the images and masks
+    # images, _, masks, _ = train_test_split(images, masks, test_size=0.75, random_state=42)
     
-    images_train, images_test, masks_train, masks_test = train_test_split(images, masks, train_size=params.TRAIN_TEST_SPLIT, random_state=42)
-    print(f"Number of training images: {len(images_train)}")
-    print(f"Number of testing images: {len(images_test)}")
-    print(f"Number of training masks: {len(masks_train)}")
-    print(f"Number of testing masks: {len(masks_test)}")
+    
     
 
     image_transforms = transforms.Compose([
         transforms.ToPILImage(), 
         # transforms.Resize(config.INPUT_IMAGE_SIZE), 
-        transforms.Grayscale(),
+        # transforms.Grayscale(),
         transforms.ToTensor(),
         # transforms.Normalize(mean=[0], std=[1]),
         # transforms.GaussianBlur(kernel_size=5),
         # Augmentation
         transforms.RandomHorizontalFlip(),
-        transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
+        transforms.RandomVerticalFlip(),
+        transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.6, 1))
+        # transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
     ])
-    train_dataset = PeopleMaskingDataset(images_train, masks_train, image_transforms)
-    test_dataset = PeopleMaskingDataset(images_test, masks_test, image_transforms)
-    train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
-    test_loader = DataLoader(test_dataset, batch_size=params.BATCH_SIZE, shuffle=False, num_workers=params.NUM_WORKERS)
+    train_dataset = PeopleMaskingDataset(images, masks, image_transforms, read_mode=cv2.IMREAD_COLOR_BGR)
 
-    unet = UNET(in_channels=1, out_channels=1).to(config.DEVICE)
+    train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
+
+
+    unet = UNET().to(config.DEVICE)
     if checkpoint_path:
         unet.load_state_dict(torch.load(checkpoint_path))
-    loss_fn = BCEWithLogitsLoss()
+    loss_fn = BCEWithLogitsLoss(reduction="sum")
     optimizer = Adam(unet.parameters(), lr=params.LR, weight_decay=1e-5)
-    scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
+    cv2.namedWindow("Predicted / Actual")
     train_steps = len(train_loader)
-    test_steps = len(test_loader)
+    unet.train()
     print(f"Number of training steps: {train_steps}")
-    print(f"Number of testing steps: {test_steps}")
 
-    train_loss = []
-    test_loss = []
-    train_accuracy = []
-    test_accuracy = []
     print("Starting training...")
     start_time = time.time()
     for epoch in range(params.NUM_EPOCHS):
-        unet.train()
 
         epoch_loss = 0
         epoch_accuracy = 0
-        epoch_test_loss = 0
-        epoch_test_accuracy = 0
         for _, (images, masks) in enumerate(tqdm(train_loader)):
             images = images.to(config.DEVICE)
             masks = masks.to(config.DEVICE)
@@ -76,34 +71,30 @@ def main(checkpoint_path=None):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            scheduler.step()
-
             epoch_loss += loss.item()
 
-        
-        with torch.no_grad():
-            # Evaluation on test set
-            unet.eval()
-            if epoch % params.TEST_EVERY == 0:
-                for batch_idx, (images, masks) in enumerate(tqdm(test_loader)):
-                    images = images.to(config.DEVICE)
-                    masks = masks.to(config.DEVICE)
+            epoch_accuracy += ((predictions > 0.5) == masks).float().mean().item()
+            
+            # display
+            image, mask = train_dataset.__getitem__(random.randint(0, len(train_dataset) - 1))
+            
+            with torch.no_grad():
+                unet.eval()
+                out = (unet(image.view(1, 3, *config.INPUT_IMAGE_SIZE).to(config.DEVICE)).view(*config.INPUT_IMAGE_SIZE).cpu().numpy() > 0) * 1.0
+                unet.train()
+            original = image.permute(1, 2, 0).cpu().numpy()  # Convert from [C, H, W] to [H, W, C]
+            original = np.uint8(255 * original)
+            mask = mask.view(*config.INPUT_IMAGE_SIZE).cpu().numpy()
+            out = np.concatenate((out, mask), axis=1)
+            cv2.imshow("Predicted / Actual", np.uint8(255 * out))
+            cv2.imshow("Original", np.uint8(original))
+            cv2.waitKey(1)
 
-                    predictions = unet(images)
-                    loss = loss_fn(predictions, masks)
 
-                    epoch_test_loss += loss.item()
-                    epoch_test_accuracy += ((predictions > 0.5) == masks).float().mean().item()
+        epoch_loss = epoch_loss / train_steps * params.BATCH_SIZE
 
 
-        train_loss.append(epoch_loss / train_steps)
-
-        train_accuracy.append(epoch_accuracy / train_steps)
-        if epoch % params.TEST_EVERY == 0:
-            test_loss.append(epoch_test_loss / test_steps)
-            test_accuracy.append(epoch_test_accuracy / test_steps)
-
-        print(f"Epoch {epoch + 1}/{params.NUM_EPOCHS} - Train loss: {train_loss[-1]:.4f} - Test loss: {test_loss[-1]:.4f} - Train accuracy: {train_accuracy[-1]:.4f} - Test accuracy: {test_accuracy[-1]:.4f}")
+        print(f"Epoch {epoch + 1}/{params.NUM_EPOCHS} - Train loss: {epoch_loss:.4f}")
         
         torch.save(unet.state_dict(), config.MODEL_PATH)
         print(f"Model saved to {config.MODEL_PATH}")
@@ -114,7 +105,7 @@ def main(checkpoint_path=None):
     print(f"Total training time: {time.time() - start_time:.2f} seconds")
 
 if __name__ == "__main__":
-    main()
+    main("checkpoints/model_v3_selfies.pth")
 
             
 

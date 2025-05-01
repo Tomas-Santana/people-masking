@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 def load_model(checkpoint_path, device):
-    model = UNET(in_channels=1).to(device)
+    model = UNET().to(device)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model.eval()
     return model
@@ -17,10 +17,8 @@ def preprocess_frame(frame, input_size):
     transformations = TL.Compose([
         TL.ToPILImage(),
         TL.Resize(input_size),
-        TL.Grayscale(),
         TL.ToTensor(),
-        TL.Normalize(mean=[0], std=[1]),
-        TL.GaussianBlur(kernel_size=5),
+        # TL.GaussianBlur(kernel_size=5),
     ])
     image = transformations(frame)
     return image.unsqueeze(0) 
@@ -32,7 +30,7 @@ def main():
         print("Error: Could not open webcam.")
         return
 
-    checkpoint_path = "checkpoints/model_v2.pth" 
+    checkpoint_path = "checkpoints/model_v3_selfies+og.pth" 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = load_model(checkpoint_path, device)
 
