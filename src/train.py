@@ -10,7 +10,6 @@ import src.params as params
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torchvision import transforms
 from imutils import paths
 from tqdm import tqdm
 import torch
@@ -26,17 +25,11 @@ def main(checkpoint_path=None):
     if (len(masks) != len(images)):
         throw_error(f"Number of masks and images do not match")
 
-    image_transforms = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Grayscale(),
-        transforms.ToTensor(),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
-    ])
-    dataset = PeopleMaskingDataset(images, masks, image_transforms)
+
+    dataset = PeopleMaskingDataset(images, masks, augment=True)
     loader = DataLoader(dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
 
-    unet = UNET(in_channels=1, out_channels=1).to(config.DEVICE)
+    unet = UNET(in_channels=3, out_channels=1).to(config.DEVICE)
     if checkpoint_path:
         unet.load_state_dict(torch.load(checkpoint_path))
     loss_fn = BCEWithLogitsLoss()
@@ -91,7 +84,3 @@ def main(checkpoint_path=None):
 
 if __name__ == "__main__":
     main()
-
-            
-
-        

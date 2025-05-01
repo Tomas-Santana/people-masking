@@ -5,8 +5,8 @@ import src.config as config
 import tqdm
 from torchvision import transforms
 
-images_paths = list(paths.list_images(config.IMAGES_DIR))
-masks_paths = list(paths.list_images(config.MASKS_DIR))
+images_paths = sorted(list(paths.list_images(config.IMAGES_DIR)))
+masks_paths = sorted(list(paths.list_images(config.MASKS_DIR)))
 
 image_transforms = transforms.Compose([
     transforms.ToPILImage(), 
