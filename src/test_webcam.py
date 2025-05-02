@@ -36,7 +36,9 @@ def main():
     model = load_model(checkpoint_path, device)
 
     input_size = config.INPUT_IMAGE_SIZE 
-
+    blur = True
+    kernel_5 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    kernel_10 = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     while True:
         ret, frame = webcam.read()
         if not ret:
@@ -49,33 +51,36 @@ def main():
             predicted_mask = model(image)
             predicted_mask = (predicted_mask > 0.5).float()  
 
-            target_size = (frame.shape[1], frame.shape[0]) 
-            predicted_mask = torch.nn.functional.interpolate(predicted_mask, size=target_size, mode="bilinear", align_corners=False, antialias=True)
-
+             
         mask = predicted_mask.squeeze().cpu().numpy()  
-        mask = (mask * 255).astype(np.uint8)  
-        mask_colored = cv2.applyColorMap(mask, cv2.COLORMAP_JET)  
-
-        mask_colored = cv2.resize(mask_colored, (frame.shape[1], frame.shape[0]))  
-
-        binary_mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]))  
-        binary_mask = binary_mask // 255  
-
-        noise = np.random.normal(0, 0.1, binary_mask.shape).astype(np.uint8)
-        binary_mask = cv2.add(binary_mask, noise)
-        binary_mask = np.clip(binary_mask, 0, 1)
-        binary_mask = binary_mask.astype(np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_5)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_5)
+        mask = cv2.resize(mask, (frame.shape[1], frame.shape[0]))
+        mask = cv2.dilate(mask, kernel_10, iterations=1)
+        mask = cv2.GaussianBlur(mask, (31, 31), 0) 
         
+        if blur:
+            bg = frame * (1 - mask[:, :, None])
+            bg = cv2.GaussianBlur(bg, ksize=(31, 31), sigmaX=0)
 
-        masked_frame = frame * binary_mask[:, :, np.newaxis]  
+        else:
+            # open bg/stout-bg
+            bg = cv2.imread("assets/bg.jpg")
+            bg = cv2.resize(bg, (frame.shape[1], frame.shape[0]))
+            bg = bg * (1 - mask[:, :, None])
 
-        combined = np.hstack((mask_colored, masked_frame))
+        frame = frame * mask[:, :, None]
+        frame += bg
+        frame[frame > 255] = 255
 
-        cv2.imshow("Webcam, Predicted Mask, and Masked Frame", combined)
+        cv2.imshow('Webcam', np.uint8(frame))
+
 
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
+        if cv2.waitKey(1) & 0xFF == ord('b'):
+            blur = not blur
 
     webcam.release()
     cv2.destroyAllWindows()
