@@ -22,10 +22,10 @@ class PeopleMaskingDataset(Dataset):
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
 
         if self.transform:
+            # In order to ensure that the same transformation is applied to both image and mask, we need to set the same seed for the random number generator.
             seed = torch.randint(0, 2**32, (1,)).item()
             torch.manual_seed(seed)
             image = self.transform(image)
-            torch.manual_seed(seed)
             mask = self.transform(mask)
 
         return image, mask

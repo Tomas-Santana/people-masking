@@ -16,44 +16,51 @@ import torch
 import time
 from torch.optim.lr_scheduler import StepLR
 
+DATASETS = {
+    "SELFIES": {
+        "images": config.PREPROCESSED_TRAIN_SELFIES_DIR,
+        "masks": config.PREPROCESSED_TRAIN_SELFIES_MASKS_DIR
+    },
+    "IMAGES": {
+        "images": config.PREPROCESSED_TRAIN_IMAGES_DIR,
+        "masks": config.PREPROCESSED_TRAIN_MASKS_DIR
+    }
+}
 
 def main(checkpoint_path=None):
 
-    masks: list[str] = list(paths.list_images(config.PREPROCESSED_TRAIN_MASKS_DIR))
-    images = [str(p).replace("masks", "images") for p in masks]
-    # random sample 25% of the images and masks
-    # images, _, masks, _ = train_test_split(images, masks, test_size=0.75, random_state=42)
-    
-    
-    
+    masks: list[str] =  list(paths.list_images(DATASETS["SELFIES"]["masks"]))
+    images = list(paths.list_images(DATASETS["SELFIES"]["images"]))
+    # Get 50% of the selfies dataset
+    images, _, masks, _ = train_test_split(images, masks, test_size=0.5, random_state=42)
 
+    # Get 100% of the images dataset
+    images += list(paths.list_images(DATASETS["IMAGES"]["images"]))
+    masks += list(paths.list_images(DATASETS["IMAGES"]["masks"]))
+    
     image_transforms = transforms.Compose([
         transforms.ToPILImage(), 
-        # transforms.Resize(config.INPUT_IMAGE_SIZE), 
-        # transforms.Grayscale(),
         transforms.ToTensor(),
-        # transforms.Normalize(mean=[0], std=[1]),
-        # transforms.GaussianBlur(kernel_size=5),
-        # Augmentation
+        # Data augmentation
         transforms.RandomHorizontalFlip(),
         transforms.RandomVerticalFlip(),
         transforms.RandomAffine(degrees=10, translate=(0.1, 0.1), scale=(0.6, 1))
-        # transforms.RandomAffine(degrees=15, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),
     ])
     train_dataset = PeopleMaskingDataset(images, masks, image_transforms, read_mode=cv2.IMREAD_COLOR_BGR)
 
     train_loader = DataLoader(train_dataset, batch_size=params.BATCH_SIZE, shuffle=True, num_workers=params.NUM_WORKERS)
 
-
+    # Train setup
     unet = UNET().to(config.DEVICE)
     if checkpoint_path:
         unet.load_state_dict(torch.load(checkpoint_path))
+
     loss_fn = BCEWithLogitsLoss(reduction="sum")
     optimizer = Adam(unet.parameters(), lr=params.LR, weight_decay=1e-5)
+    
     cv2.namedWindow("Predicted / Actual")
     train_steps = len(train_loader)
     unet.train()
-    print(f"Number of training steps: {train_steps}")
 
     print("Starting training...")
     start_time = time.time()
@@ -75,24 +82,26 @@ def main(checkpoint_path=None):
 
             epoch_accuracy += ((predictions > 0.5) == masks).float().mean().item()
             
-            # display
+            # Display a random image and its mask to check the training process
             image, mask = train_dataset.__getitem__(random.randint(0, len(train_dataset) - 1))
             
             with torch.no_grad():
+                # Get the predicted mask for the random image
                 unet.eval()
                 out = (unet(image.view(1, 3, *config.INPUT_IMAGE_SIZE).to(config.DEVICE)).view(*config.INPUT_IMAGE_SIZE).cpu().numpy() > 0) * 1.0
                 unet.train()
-            original = image.permute(1, 2, 0).cpu().numpy()  # Convert from [C, H, W] to [H, W, C]
+
+            original = image.permute(1, 2, 0).cpu().numpy()  # Convert from [C, H, W] to [H, W, C] since it's what openCV expects
             original = np.uint8(255 * original)
             mask = mask.view(*config.INPUT_IMAGE_SIZE).cpu().numpy()
             out = np.concatenate((out, mask), axis=1)
             cv2.imshow("Predicted / Actual", np.uint8(255 * out))
+
+            # Show the original image in another window
             cv2.imshow("Original", np.uint8(original))
             cv2.waitKey(1)
 
-
         epoch_loss = epoch_loss / train_steps * params.BATCH_SIZE
-
 
         print(f"Epoch {epoch + 1}/{params.NUM_EPOCHS} - Train loss: {epoch_loss:.4f}")
         
@@ -105,7 +114,7 @@ def main(checkpoint_path=None):
     print(f"Total training time: {time.time() - start_time:.2f} seconds")
 
 if __name__ == "__main__":
-    main("checkpoints/model_v3_selfies.pth")
+    main()
 
             
 
