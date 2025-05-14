@@ -1,20 +1,21 @@
 import random
+import time
+
 import cv2
 import numpy as np
-from src.data import PeopleMaskingDataset
-from src.models.UNET import UNET
-import src.config as config
-import src.params as params
+import torch
+from imutils import paths
+from sklearn.model_selection import train_test_split
 from torch.nn import BCEWithLogitsLoss
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
 from torchvision import transforms
-from imutils import paths
 from tqdm import tqdm
-import torch
-import time
-from torch.optim.lr_scheduler import StepLR
+
+import src.config as config
+import src.params as params
+from src.data import PeopleMaskingDataset
+from src.models.UNET import UNET
 
 DATASETS = {
     "SELFIES": {
@@ -115,7 +116,3 @@ def main(checkpoint_path=None):
 
 if __name__ == "__main__":
     main()
-
-            
-
-        

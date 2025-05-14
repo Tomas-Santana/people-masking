@@ -1,6 +1,7 @@
+import torch
 from torch import nn
 from torch.nn import functional as F
-import torch
+
 
 class UNET(nn.Module):
     def __init__(self, in_channels=3, out_channels=1, max_channels=256):

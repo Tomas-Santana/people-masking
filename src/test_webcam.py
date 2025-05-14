@@ -1,11 +1,11 @@
-import torch
-from torchvision import transforms as TL
-from PIL import Image
-from src.models.UNET import UNET
-import src.config as config
 import cv2
 import numpy as np
+import torch
+from torchvision import transforms as TL
+import src.config as config
+from src.models.UNET import UNET
 
+# Loads a model from a saved checkpoint
 def load_model(checkpoint_path, device):
     model = UNET().to(device)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
@@ -21,6 +21,7 @@ def preprocess_frame(frame, input_size):
     ])
     image = transformations(frame)
     return image.unsqueeze(0) 
+
 
 def main(checkpoint_path):
     # Open webcam

@@ -1,9 +1,11 @@
 import os
-from imutils import paths
+
 import cv2
-import src.config as config
 import tqdm
+from imutils import paths
 from torchvision import transforms
+
+import src.config as config
 
 # Change the paths to your dataset train directories
 TRAIN_DIR = config.TRAIN_IMAGES_DIR
@@ -25,6 +27,7 @@ masks_paths = list(paths.list_images(TRAIN_MASKS_DIR))
 test_images_paths = list(paths.list_images(TEST_DIR))
 test_masks_paths = list(paths.list_images(TEST_MASKS_DIR))
 
+# Defines the augmentation being applied to every image in the dataset
 image_transforms = transforms.Compose([
     transforms.ToPILImage(),
     transforms.Resize(config.INPUT_IMAGE_SIZE), 
@@ -34,6 +37,7 @@ image_transforms = transforms.Compose([
     
 ])
 
+# Reads each image and its mask, applies the transformation, and stores them in the specified directories
 def preprocess(images, masks, transforms, desc, images_dir=None, masks_dir=None):
     for image_path, mask_path in tqdm.tqdm(zip(images, masks), total=len(images), desc=desc):
         image = cv2.imread(image_path, cv2.IMREAD_COLOR)
@@ -50,7 +54,7 @@ def preprocess(images, masks, transforms, desc, images_dir=None, masks_dir=None)
         image.save(os.path.join(images_dir, image_name))
         mask.save(os.path.join(masks_dir, mask_name))
 
-
+# Makes image directories and calls the preprocess function
 if __name__ == "__main__":
     os.makedirs(P_TEST_DIR, exist_ok=True)
     os.makedirs(P_TRAIN_MASKS_DIR, exist_ok=True)
