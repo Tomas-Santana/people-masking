@@ -81,35 +81,3 @@ class ConvBlock(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
-
-
-class EncoderBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, double_conv=False):
-        super(EncoderBlock, self).__init__()
-        self.conv = ConvBlock(in_channels, out_channels, kernel_size, padding, double_conv)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-
-    def forward(self, x):
-        x = self.conv(x)
-        p = self.pool(x)
-        return x, p
-    
-class DecoderBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, bilinear=True):
-        super(DecoderBlock, self).__init__()
-        if bilinear:
-            self.upconv = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        else:
-            self.upconv = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-        
-        # Adjust the input channels for the ConvBlock to account for concatenation
-        self.conv = ConvBlock(in_channels + out_channels, out_channels)
-
-    def forward(self, x1, x2):
-        x1 = self.upconv(x1)
-        
-        x = torch.cat((x2, x1), dim=1)
-        return self.conv(x)
-
-            
-        
