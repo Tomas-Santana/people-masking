@@ -1,14 +1,15 @@
+import random
+
+import cv2
 import numpy as np
 import torch
-from torchvision import transforms as TL
 from PIL import Image
-import matplotlib.pyplot as plt
-from src.models.UNET import UNET
-import src.config as config
 from imutils import paths
-import random
-import torch.nn.functional as F
-import cv2
+from torchvision import transforms as TL
+
+import src.config as config
+from src.models.UNET import UNET
+
 
 def load_model(checkpoint_path, device):
     model = UNET().to(device)

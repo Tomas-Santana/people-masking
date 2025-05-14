@@ -1,10 +1,11 @@
-import torch
-from torchvision import transforms as TL
-from PIL import Image
-from src.models.UNET import UNET
-import src.config as config
 import cv2
 import numpy as np
+import torch
+from torchvision import transforms as TL
+
+import src.config as config
+from src.models.UNET import UNET
+
 
 def load_model(checkpoint_path, device):
     model = UNET().to(device)

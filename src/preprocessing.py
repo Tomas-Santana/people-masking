@@ -1,9 +1,11 @@
 import os
-from imutils import paths
+
 import cv2
-import src.config as config
 import tqdm
+from imutils import paths
 from torchvision import transforms
+
+import src.config as config
 
 # Change the paths to your dataset train directories
 TRAIN_DIR = config.TRAIN_IMAGES_DIR
