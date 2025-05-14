@@ -1,4 +1,4 @@
-# Person segmentation model
+# People masking UNET
 
 By Jonah Krueger, Noah Kawleski, Tomas Santana and Alex Berg
 
