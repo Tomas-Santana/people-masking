@@ -57,7 +57,7 @@ def visualize_result(image_path, mask):
 
 def main(checkpoint_path):
     # Path to the image and model checkpoint
-    images_dir = config.PREPROCESSED_TRAIN_IMAGES_DIR  # Directory containing test images
+    images_dir = config.PREPROCESSED_TRAIN_IMAGES_DIR  # <- Change this to your actual directory
     images_path = list(paths.list_images(images_dir))
 
     # Load model
