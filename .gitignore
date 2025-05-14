@@ -3,3 +3,5 @@ __pycache__
 *.pyc
 output
 checkpoints
+dataset_images/
+dataset_selfies/
