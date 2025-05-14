@@ -1,31 +1,86 @@
+import numpy as np
 import torch
+from torchvision import transforms as TL
+from PIL import Image
+import matplotlib.pyplot as plt
 from src.models.UNET import UNET
-import torchvision
+import src.config as config
+from imutils import paths
+import random
+import torch.nn.functional as F
 import cv2
 
+def load_model(checkpoint_path, device):
+    model = UNET().to(device)
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    model.eval()
+    return model
 
-checkpont = torch.load("checkpoints/model.pth")
-model = UNET()
-model.load_state_dict(checkpont)
+def preprocess_image(image_path, input_size):
+    transformations = TL.Compose([
+        TL.Resize(input_size),
+        TL.ToTensor()
+    ])
+    image = Image.open(image_path).convert("RGB")
+    image = transformations(image)
+    return image.unsqueeze(0)  
 
-sample_image_path = "dataset/images/ds1_bow-tie-businessman-fashion-man.png"
+def visualize_result(image_path, mask):
+    cv2.namedWindow("Actual image")
+    non_processed_image_path = image_path.replace("preprocessed_images", "images")
+    non_processed_mask_path = image_path.replace("preprocessed_images", "masks")
+    non_processed_image = cv2.imread(non_processed_image_path)
+    
+    actual_dimensions = (non_processed_image.shape[1], non_processed_image.shape[0])  # (width, height)
+    
+    mask = mask.squeeze().cpu().numpy()  
+    mask = (mask * 255).astype(np.uint8)
 
-image = torchvision.io.read_image(sample_image_path).unsqueeze(0).float() / 255.0
-image = torchvision.transforms.functional.resize(image, (128, 128))
-grayscale_image = torchvision.transforms.functional.rgb_to_grayscale(image, num_output_channels=1)
-image = grayscale_image.unsqueeze(0)
+    cv2.imshow("Actual image", non_processed_image)
+    cv2.imshow("Actual Mask", cv2.imread(non_processed_mask_path, cv2.IMREAD_GRAYSCALE))
 
-image = image.to("cpu")
+    # add gaussian blur to the mask
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    # remove salt and pepper noise
+    processed_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    processed_mask = cv2.morphologyEx(processed_mask, cv2.MORPH_CLOSE, kernel)
 
-model.eval()
+    processed_mask = cv2.resize(processed_mask, actual_dimensions)
 
-with torch.no_grad():
-    output = model(image)
-    output = torch.sigmoid(output)
-    output = (output > 0.5).float()
-    output_image = output.squeeze().cpu().numpy()
+    processed_mask = cv2.dilate(processed_mask, kernel, iterations=1)
+    # add gaussian blur to the mask to hide pixelation    
+    processed_mask = cv2.GaussianBlur(processed_mask, (31, 31), 0)
+    cv2.imshow("Processed Mask", processed_mask)
 
-    output_image = (output_image * 255).astype("uint8")
-    output_image = cv2.cvtColor(output_image, cv2.COLOR_GRAY2BGR)
-    cv2.imshow("Output", output_image)
-    cv2.waitKey(0)
+
+def main(checkpoint_path):
+    # Path to the image and model checkpoint
+    images_dir = config.PREPROCESSED_TRAIN_IMAGES_DIR  # Directory containing test images
+    images_path = list(paths.list_images(images_dir))
+
+    # Load model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = load_model(checkpoint_path, device)
+
+    # Preprocess the image
+    input_size = config.INPUT_IMAGE_SIZE  # Ensure this matches your training configuration
+
+    while True:
+        image_path = random.choice(images_path)  
+        image = preprocess_image(image_path, input_size).to(device)
+        
+        # Predict the mask
+        with torch.no_grad():
+            predicted_mask = model(image)
+            predicted_mask = (predicted_mask > 0.5).float()  # Binarize the mask
+
+        visualize_result(image_path, predicted_mask)
+        if cv2.waitKey(0) & 0xFF == ord('n'):
+            continue    
+        elif cv2.waitKey(0) & 0xFF == ord('q'):
+            break
+
+
+if __name__ == "__main__":
+    CHECKPOINT_PATH = "weights/model_v3.pth"  # <- Replace with your model path
+    main(CHECKPOINT_PATH)
