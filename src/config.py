@@ -52,7 +52,7 @@ PREPROCESSED_TEST_SELFIES_DIR = os.path.abspath(PREPROCESSED_TEST_SELFIES_DIR)
 PREPROCESSED_TEST_SELFIES_MASKS_DIR = os.path.join("dataset_selfies", "test", "preprocessed_masks")
 PREPROCESSED_TEST_SELFIES_MASKS_DIR = os.path.abspath(PREPROCESSED_TEST_SELFIES_MASKS_DIR)
 
-
+# Directory for storing checkpoints during training
 CHECKPOINTS_DIR = os.path.join("checkpoints")
 CHECKPOINTS_DIR = os.path.abspath(CHECKPOINTS_DIR)
 os.makedirs(CHECKPOINTS_DIR, exist_ok=True)
@@ -66,5 +66,3 @@ BASE_OUTPUT = os.path.sep.join([OUTPUT_DIR, "output"])
 MODEL_PATH = os.path.abspath(os.path.join(CHECKPOINTS_DIR, "model_v3_selfies+images_doubleconv.pth"))
 PLOT_PATH = os.path.sep.join([BASE_OUTPUT, "plot.png"])
 TEST_PATHS = os.path.sep.join([BASE_OUTPUT, "test_paths.txt"])
-
-

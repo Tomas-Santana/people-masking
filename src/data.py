@@ -29,5 +29,3 @@ class PeopleMaskingDataset(Dataset):
             mask = self.transform(mask)
 
         return image, mask
-
-        

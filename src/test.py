@@ -6,17 +6,17 @@ import torch
 from PIL import Image
 from imutils import paths
 from torchvision import transforms as TL
-
 import src.config as config
 from src.models.UNET import UNET
 
-
+# Loads a model from a saved checkpoint
 def load_model(checkpoint_path, device):
     model = UNET().to(device)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model.eval()
     return model
 
+# converts images to RGB, resizes, then converts to a tensor
 def preprocess_image(image_path, input_size):
     transformations = TL.Compose([
         TL.Resize(input_size),
@@ -26,6 +26,7 @@ def preprocess_image(image_path, input_size):
     image = transformations(image)
     return image.unsqueeze(0)  
 
+# Creates a visual for the result of the model with the actual image, actual mask, and predicted mask with postprocessing applied
 def visualize_result(image_path, mask):
     cv2.namedWindow("Actual image")
     non_processed_image_path = image_path.replace("preprocessed_images", "images")

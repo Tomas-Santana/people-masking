@@ -116,7 +116,3 @@ def main(checkpoint_path=None):
 
 if __name__ == "__main__":
     main()
-
-            
-
-        
